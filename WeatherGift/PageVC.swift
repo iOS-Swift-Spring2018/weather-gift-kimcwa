@@ -10,8 +10,9 @@ import UIKit
 
 class PageVC: UIPageViewController {
     
+    
     var currentPage = 0
-    var locationsArray = ["Local City", "Santo Domingo, Dominican Republic", "Chestnut Hill, MA", "Seoul, South Korea"]
+    var locationsArray = [WeatherLocation]()
     var pageControl: UIPageControl!
     var listButton: UIButton!
     var barButtonWidth: CGFloat = 44 // CGFloat is graphic numbering system. Width of 44
@@ -24,7 +25,13 @@ class PageVC: UIPageViewController {
         delegate = self // this means that I'm gonna listen to special things to happen, and if they happen I'm gonna pass it to the ViewController
         dataSource = self // this ViewController we're creating, the whole class will pay attention to it and will be the source of the data that controls the ViewController
         // when we load the page for the first time, we want to create a page for the 0th element in the array
+        
+        var newLocation = WeatherLocation()
+        newLocation.name = ""
+        locationsArray.append(newLocation)
+        
         setViewControllers([createDetailVC(forPage: 0)], direction: .forward, animated: false, completion: nil)
+        
         
     }
     
@@ -44,6 +51,7 @@ class PageVC: UIPageViewController {
         pageControl = UIPageControl(frame: CGRect(x: (view.frame.width - pageControlWidth) / 2, y: safeHeight - pageControlHeight, width: pageControlWidth, height: pageControlHeight))
         pageControl.pageIndicatorTintColor = UIColor.lightGray
         pageControl.currentPageIndicatorTintColor = UIColor.black
+        pageControl.backgroundColor = UIColor.white
         pageControl.numberOfPages = locationsArray.count
         pageControl.currentPage = currentPage
         
@@ -72,6 +80,10 @@ class PageVC: UIPageViewController {
         
     }
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        guard let currentViewController = self.viewControllers?[0] as? DetailVC else {
+            return
+        }
+        locationsArray = currentViewController.locationsArray
         if segue.identifier == "ToListVC" {
             let destination = segue.destination as! ListVC // set destination, in this case, to ListVC
             destination.locationsArray = locationsArray
@@ -123,7 +135,9 @@ extension PageVC: UIPageViewControllerDataSource, UIPageViewControllerDelegate {
     }
     
     @objc func pageControlPressed() { // clicking on one of the dots
-        if let currentViewController = self.viewControllers?[0] as? DetailVC {
+        guard let currentViewController = self.viewControllers?[0] as? DetailVC else {
+            return
+        }
             currentPage = currentViewController.currentPage
             if pageControl.currentPage < currentPage {
                 setViewControllers([createDetailVC(forPage: pageControl.currentPage)/* where black dot is */], direction: .reverse, animated: true, completion: nil)
@@ -131,7 +145,7 @@ extension PageVC: UIPageViewControllerDataSource, UIPageViewControllerDelegate {
                 setViewControllers([createDetailVC(forPage: pageControl.currentPage)/* where black dot is */], direction: .forward /* black dot is greater than currentpage*/, animated: true, completion: nil)
             }
         }
-    }
+    
     
 }
 
