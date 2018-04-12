@@ -15,151 +15,162 @@ class PageVC: UIPageViewController {
     var locationsArray = [WeatherLocation]()
     var pageControl: UIPageControl!
     var listButton: UIButton!
-    var barButtonWidth: CGFloat = 44 // CGFloat is graphic numbering system. Width of 44
+    var aboutButton: UIButton!
+    var aboutButtonSize: CGSize!
+    var barButtonWidth: CGFloat = 44
     var barButtonHeight: CGFloat = 44
     
     
-
     override func viewDidLoad() {
         super.viewDidLoad()
-        delegate = self // this means that I'm gonna listen to special things to happen, and if they happen I'm gonna pass it to the ViewController
-        dataSource = self // this ViewController we're creating, the whole class will pay attention to it and will be the source of the data that controls the ViewController
-        // when we load the page for the first time, we want to create a page for the 0th element in the array
+        delegate = self
+        dataSource = self
         
-        var newLocation = WeatherLocation()
-        newLocation.name = ""
+        var newLocation = WeatherLocation(name: "", coordinates: "")
         locationsArray.append(newLocation)
-        
+        loadLocations()
         setViewControllers([createDetailVC(forPage: 0)], direction: .forward, animated: false, completion: nil)
-        
         
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        
-        configurePageControl()
+        configureAboutButton()
         configureListButton()
+        configurePageControl()
+        
+        
     }
     
-    //MARK:- UI Configration Methods
-    func configurePageControl() { // The dots on the bottom
+    func loadLocations(){
+        guard let locationsEncoded = UserDefaults.standard.value(forKey: "locationsArray") as? Data else{
+            print("couldn't load locationsArray data")
+            return
+        }
+        let decoder = JSONDecoder()
+        if let locationsArray = try? decoder.decode(Array.self, from: locationsEncoded) as [WeatherLocation] {
+            self.locationsArray = locationsArray
+        }else{
+            print("ERROR couldn't load locations")
+        }
+    }
+    
+    //MARK:- UI Configuration Methods
+    func configurePageControl(){
         let pageControlHeight: CGFloat = barButtonHeight
         let pageControlWidth: CGFloat = view.frame.width - (barButtonWidth * 2)
+        
         let safeHeight = view.frame.height - view.safeAreaInsets.bottom
         
         pageControl = UIPageControl(frame: CGRect(x: (view.frame.width - pageControlWidth) / 2, y: safeHeight - pageControlHeight, width: pageControlWidth, height: pageControlHeight))
+        
         pageControl.pageIndicatorTintColor = UIColor.lightGray
         pageControl.currentPageIndicatorTintColor = UIColor.black
         pageControl.backgroundColor = UIColor.white
         pageControl.numberOfPages = locationsArray.count
         pageControl.currentPage = currentPage
-        
-        pageControl.addTarget(self, action: #selector(pageControlPressed), for: .touchUpInside) // clicking on one of the dots
-        
-        
-        view.addSubview(pageControl) // Always do view.addSubView after configuring the UIButton and creating and setting its action function. Need to add button to current view controller this way
+        view.addSubview(pageControl)
     }
     
-    func configureListButton() {
+    func configureListButton(){
+        let largestWidth = max(barButtonWidth, aboutButton.frame.width)
         let safeHeight = view.frame.height - view.safeAreaInsets.bottom
-        listButton = UIButton(frame: CGRect(x: view.frame.width - barButtonWidth, y: safeHeight - barButtonHeight, width: barButtonWidth, height: barButtonHeight))
-        
-        listButton.setImage(UIImage(named: "listButton"), for: .normal)
-        listButton.setImage(UIImage(named: "listButton-highlighted"), for:. highlighted)
+        listButton = UIButton(frame: CGRect(x: view.frame.width - barButtonWidth, y: view.frame.height - barButtonHeight, width: largestWidth, height: barButtonHeight))
+        listButton.setImage(UIImage(named: "listbutton"), for: .normal)
+        listButton.setImage(UIImage(named: "listbutton-highlighted"), for: .highlighted)
         listButton.addTarget(self, action: #selector(segueToListVC), for: .touchUpInside)
         view.addSubview(listButton)
-        
     }
     
-    //MARK:- Segue
-    @objc func segueToListVC() {
-        print("Hey you Clicked Me!")
+    func configureAboutButton(){
+        let aboutButtonText = "About"
+        let aboutButtonFont = UIFont.systemFont(ofSize: 15)
+        let fontAttributes = [NSAttributedStringKey.font: aboutButtonFont]
+        aboutButtonSize = aboutButtonText.size(withAttributes: fontAttributes)
+        aboutButtonSize.height += 16
+        aboutButtonSize.width += 16
         
+        let safeHeight = view.frame.height - view.safeAreaInsets.bottom
+        aboutButton = UIButton(frame: CGRect(x: 8, y: (safeHeight - 5) - aboutButtonSize.height, width: aboutButtonSize.width, height: aboutButtonSize.height))
+        
+        aboutButton.setTitle(aboutButtonText, for: .normal)
+        aboutButton.setTitleColor(UIColor.darkText, for: .normal)
+        aboutButton.titleLabel?.font = aboutButtonFont
+        aboutButton.addTarget(self, action: #selector(segueToAboutVC), for: .touchUpInside)
+        view.addSubview(aboutButton)
+    }
+    
+    //MARK:- Segues
+    
+    @objc func segueToAboutVC(){
+        performSegue(withIdentifier: "ToAboutVC", sender: nil)
+    }
+    
+    @objc func segueToListVC(){
         performSegue(withIdentifier: "ToListVC", sender: nil)
-        
     }
+    
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        guard let currentViewController = self.viewControllers?[0] as? DetailVC else {
-            return
-        }
+        guard let currentViewController = self.viewControllers![0] as? DetailVC else {return}
         locationsArray = currentViewController.locationsArray
-        if segue.identifier == "ToListVC" {
-            let destination = segue.destination as! ListVC // set destination, in this case, to ListVC
+        
+        if segue.identifier == "ToListVC"{
+            let destination = segue.destination as! ListVC
             destination.locationsArray = locationsArray
-            destination.currentPage = currentPage
         }
     }
     
-    @IBAction func unwindFromListVC(sender: UIStoryboardSegue) {
+    @IBAction func unwindFromListVC(sender: UIStoryboardSegue){
         pageControl.numberOfPages = locationsArray.count
         pageControl.currentPage = currentPage
         setViewControllers([createDetailVC(forPage: currentPage)], direction: .forward, animated: false, completion: nil)
+        
     }
     
-    //MARK:- Create View Controller for UIPageViewController
-    func createDetailVC(forPage page: Int) -> DetailVC { // this function is creating another DetailVC.swift
-        currentPage = min(max(0, page), locationsArray.count - 1)
+    //MARK:- Create View controller for UIPageViewController
+    
+    func createDetailVC(forPage page: Int) -> DetailVC{
+        currentPage = min(max(0, page), locationsArray.count-1 )
         
-        let detailVC = storyboard!.instantiateViewController(withIdentifier: "DetailVC") as! DetailVC
-        
-        detailVC.locationsArray = locationsArray // weare creating everything in the PageVC. After we create the detailVC in locationsArray, we want to pass it down to DetailVC.
+        let detailVC = storyboard?.instantiateViewController(withIdentifier: "DetailVC") as! DetailVC
+        detailVC.locationsArray = locationsArray
         detailVC.currentPage = currentPage
+        
         return detailVC
+        
     }
+    
+    
     
 }
 
-extension PageVC: UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+extension PageVC: UIPageViewControllerDataSource, UIPageViewControllerDelegate{
     func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
-        if let currentViewController = viewController as? DetailVC {
-            if currentViewController.currentPage < locationsArray.count - 1 {
-                return createDetailVC(forPage: currentViewController.currentPage + 1) // swiping from rigt to left, add next page from locationsArray
+        if let currentViewController = viewController as? DetailVC{
+            if currentViewController.currentPage < locationsArray.count - 1{
+                return createDetailVC(forPage: currentViewController.currentPage + 1)
             }
         }
+        
         return nil
     }
+    
     func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
-        if let currentViewController = viewController as? DetailVC {
-            if currentViewController.currentPage > 0 {
-                return createDetailVC(forPage: currentViewController.currentPage - 1) // now swiping from left to right, getting the page before the current page
+        if let currentViewController = viewController as? DetailVC{
+            if currentViewController.currentPage > 0{
+                return createDetailVC(forPage: currentViewController.currentPage - 1)
             }
         }
         return nil
     }
     
     func pageViewController(_ pageViewController: UIPageViewController, didFinishAnimating finished: Bool, previousViewControllers: [UIViewController], transitionCompleted completed: Bool) {
-        if let currentViewController = pageViewController.viewControllers?[0] as? DetailVC {
+        if let currentViewController = pageViewController.viewControllers?[0] as? DetailVC{
             pageControl.currentPage = currentViewController.currentPage
         }
     }
     
-    @objc func pageControlPressed() { // clicking on one of the dots
-        guard let currentViewController = self.viewControllers?[0] as? DetailVC else {
-            return
-        }
-            currentPage = currentViewController.currentPage
-            if pageControl.currentPage < currentPage {
-                setViewControllers([createDetailVC(forPage: pageControl.currentPage)/* where black dot is */], direction: .reverse, animated: true, completion: nil)
-            } else if pageControl.currentPage > currentPage {
-                setViewControllers([createDetailVC(forPage: pageControl.currentPage)/* where black dot is */], direction: .forward /* black dot is greater than currentpage*/, animated: true, completion: nil)
-            }
-        }
+    
     
     
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
